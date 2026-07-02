@@ -89,6 +89,18 @@
     position:absolute; inset:0; opacity:0; cursor:pointer; width:100%; height:100%;
   }
   .drop .filename{ margin-top:8px; font-size:11px; color:var(--sage); font-weight:600; word-break:break-all; }
+  .filelist{ margin-top:10px; display:flex; flex-direction:column; gap:5px; position:relative; z-index:2; }
+  .file-chip{
+    display:flex; align-items:center; justify-content:space-between; gap:8px;
+    background:#fff; border:1px solid var(--border); border-radius:8px; padding:5px 8px;
+    font-size:10.5px; color:var(--ink); text-align:left;
+  }
+  .file-chip .fname{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; flex:1; min-width:0; }
+  .file-chip .fsize{ color:var(--ink-faint); flex-shrink:0; }
+  .file-chip .frm{
+    flex-shrink:0; border:none; background:none; color:var(--danger); cursor:pointer;
+    font-size:13px; line-height:1; padding:0 2px; font-weight:700;
+  }
   .status-row{ display:flex; align-items:center; justify-content:space-between; margin-top:18px; gap:12px; flex-wrap:wrap;}
   .status-msg{ font-size:12.5px; color:var(--ink-soft); }
   .status-msg b{ color:var(--ink); }
@@ -196,6 +208,49 @@
 
   .empty-note{ text-align:center; color:var(--ink-faint); font-size:12.5px; padding:26px 0; }
   .footer-note{ text-align:center; font-size:11.5px; color:var(--ink-faint); margin-top:30px; }
+
+  /* ---------- Report bar ---------- */
+  .report-bar{
+    background:linear-gradient(135deg, var(--ink) 0%, #34302A 100%);
+    border-radius:var(--radius); padding:20px 24px; margin-bottom:16px;
+    display:flex; align-items:center; justify-content:space-between; gap:16px; flex-wrap:wrap;
+    box-shadow:var(--shadow);
+  }
+  .report-bar-title{ color:#fff; font-weight:700; font-size:14.5px; }
+  .report-bar-sub{ color:#C9C2B6; font-size:12px; margin-top:3px; }
+  .btn-report{ background:var(--gold); color:#fff; white-space:nowrap; flex-shrink:0; }
+  .btn-report:hover{ background:var(--gold-deep); }
+
+  /* ---------- Modal ---------- */
+  .modal-overlay{
+    display:none; position:fixed; inset:0; background:rgba(34,31,27,.45);
+    align-items:center; justify-content:center; z-index:100; padding:20px;
+    backdrop-filter:blur(2px);
+  }
+  .modal-overlay.open{ display:flex; }
+  .modal-card{
+    background:var(--surface); border-radius:var(--radius); box-shadow:var(--shadow);
+    width:100%; max-width:460px; padding:22px; max-height:85vh; display:flex; flex-direction:column;
+  }
+  .modal-head{ display:flex; align-items:center; justify-content:space-between; margin-bottom:12px; }
+  .modal-head h3{ margin:0; font-size:16px; font-weight:700; }
+  .modal-close{ border:none; background:var(--surface-2); width:26px; height:26px; border-radius:50%; cursor:pointer; color:var(--ink-soft); font-size:13px; }
+  .report-preview{
+    background:var(--surface-2); border:1px solid var(--border); border-radius:var(--radius-sm);
+    padding:16px; font-family:inherit; font-size:12.5px; line-height:1.75; white-space:pre-wrap;
+    word-break:break-word; color:var(--ink); overflow-y:auto; margin:0 0 16px; max-height:50vh;
+  }
+  .report-textarea-hidden{ position:absolute; left:-9999px; opacity:0; }
+  .modal-actions{ display:flex; justify-content:flex-end; gap:10px; }
+
+  /* ---------- Toast ---------- */
+  .toast{
+    position:fixed; bottom:26px; left:50%; transform:translateX(-50%) translateY(20px);
+    background:var(--ink); color:#fff; padding:11px 22px; border-radius:999px; font-size:13px;
+    font-weight:600; opacity:0; pointer-events:none; transition:opacity .25s, transform .25s;
+    box-shadow:0 8px 24px rgba(0,0,0,.25); z-index:200;
+  }
+  .toast.show{ opacity:1; transform:translateX(-50%) translateY(0); }
 </style>
 </head>
 <body>
@@ -217,32 +272,32 @@
 
   <div class="upload-section" id="uploadSection">
     <h2>อัปโหลดไฟล์ข้อมูล</h2>
-    <p class="sub">ประมวลผลทั้งหมดในเบราว์เซอร์ของคุณ — ไม่มีการอัปโหลดหรือบันทึกข้อมูลขึ้นเซิร์ฟเวอร์ใดๆ</p>
+    <p class="sub">ประมวลผลทั้งหมดในเบราว์เซอร์ของคุณ — ไม่มีการอัปโหลดหรือบันทึกข้อมูลขึ้นเซิร์ฟเวอร์ใดๆ · อัปโหลดได้หลายไฟล์ต่อช่อง (เช่นหลายเดือน) รองรับ .xlsx, .xls และ .parquet</p>
     <div class="upload-grid">
       <div class="drop" id="drop-trade">
         <div class="ico">🔄</div>
         <h3>ไฟล์ข้อมูลการเทรด</h3>
-        <p>trade_search_*.xlsx</p>
-        <div class="filename" id="fn-trade"></div>
-        <input type="file" id="file-trade" accept=".xlsx,.xls">
+        <p>trade_search_*.xlsx / .parquet</p>
+        <div class="filelist" id="fn-trade"></div>
+        <input type="file" id="file-trade" accept=".xlsx,.xls,.parquet" multiple>
       </div>
       <div class="drop" id="drop-sales">
         <div class="ico">🧾</div>
         <h3>ไฟล์ข้อมูลยอดขาย</h3>
-        <p>*_sales.xlsx</p>
-        <div class="filename" id="fn-sales"></div>
-        <input type="file" id="file-sales" accept=".xlsx,.xls">
+        <p>*_sales.xlsx / .parquet</p>
+        <div class="filelist" id="fn-sales"></div>
+        <input type="file" id="file-sales" accept=".xlsx,.xls,.parquet" multiple>
       </div>
       <div class="drop" id="drop-org">
         <div class="ico">🗂️</div>
         <h3>ไฟล์โครงสร้างโซน / ASM</h3>
-        <p>asm_*_org.xlsx</p>
-        <div class="filename" id="fn-org"></div>
-        <input type="file" id="file-org" accept=".xlsx,.xls">
+        <p>asm_*_org.xlsx / .parquet</p>
+        <div class="filelist" id="fn-org"></div>
+        <input type="file" id="file-org" accept=".xlsx,.xls,.parquet" multiple>
       </div>
     </div>
     <div class="status-row">
-      <div class="status-msg" id="statusMsg">รอไฟล์ทั้ง 3 รายการ…</div>
+      <div class="status-msg" id="statusMsg">รอไฟล์ทั้ง 3 ช่อง…</div>
       <button class="btn btn-primary" id="processBtn" disabled>ประมวลผลข้อมูล</button>
     </div>
     <div class="err-box" id="errBox"></div>
@@ -321,6 +376,14 @@
       </div>
     </div>
 
+    <div class="report-bar">
+      <div class="report-bar-text">
+        <div class="report-bar-title">รายงานสรุปสำหรับส่งทีม</div>
+        <div class="report-bar-sub">สร้างข้อความสรุป Top 3 และสาขาที่ต้องพัฒนา พร้อมคัดลอกส่งเข้า LINE ได้ทันที</div>
+      </div>
+      <button class="btn btn-primary btn-report" id="genReportBtn">📋 วิเคราะห์รายงานสำหรับ LINE</button>
+    </div>
+
     <div class="panels">
       <div class="panel">
         <h3>สรุปผลรายสาขา</h3>
@@ -343,6 +406,24 @@
 
     <div class="footer-note">ประมวลผลข้อมูลทั้งหมดในเบราว์เซอร์ของคุณ · ไม่มีข้อมูลถูกส่งหรือบันทึกไว้บนเซิร์ฟเวอร์</div>
   </div>
+
+  <div class="modal-overlay" id="reportModalOverlay">
+    <div class="modal-card">
+      <div class="modal-head">
+        <h3>รายงานสำหรับ LINE</h3>
+        <button class="modal-close" id="reportModalClose">✕</button>
+      </div>
+      <pre class="report-preview" id="reportPreview"></pre>
+      <textarea class="report-textarea-hidden" id="reportTextarea"></textarea>
+      <div class="modal-actions">
+        <button class="btn btn-ghost" id="reportModalClose2">ปิด</button>
+        <button class="btn btn-primary" id="copyReportBtn">คัดลอกข้อความ</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
 
 </div>
 
@@ -394,25 +475,9 @@ function getField(row, candidates){
   for(const c of candidates){ if(row[c] !== undefined) return row[c]; }
   return undefined;
 }
-function readWorkbook(file){
-  return new Promise((resolve, reject)=>{
-    const reader = new FileReader();
-    reader.onload = e => {
-      try{
-        const data = new Uint8Array(e.target.result);
-        const wb = XLSX.read(data, {type:'array'});
-        const ws = wb.Sheets[wb.SheetNames[0]];
-        const rows = XLSX.utils.sheet_to_json(ws, {defval:null});
-        resolve(rows);
-      }catch(err){ reject(err); }
-    };
-    reader.onerror = () => reject(new Error('อ่านไฟล์ไม่สำเร็จ'));
-    reader.readAsArrayBuffer(file);
-  });
-}
 
 /* ================= State ================= */
-const files = { trade:null, sales:null, org:null };
+const files = { trade:[], sales:[], org:[] };
 let orgRows = null;
 let mappedTrade = [];   // {status, employee, branch, branchKey, date, bill}
 let salesRows = [];     // {employee, branch, branchKey, date, category, docRef}
@@ -421,6 +486,7 @@ let selectedZone = '';
 let zoneBranchKeys = new Set();
 let branchOptions = [];
 let empByBranch = {};   // branchKey(or __ALL__) -> Set of employee names
+let lastBranchRows = [];
 
 const TRADE_CANDS = {
   status: ['สถานะ'],
@@ -441,37 +507,124 @@ const ORG_CANDS = {
   am: ['AM']
 };
 
-/* ================= Upload wiring ================= */
-function wireDrop(key, dropId, inputId, fnId){
+/* ================= File readers (xlsx/xls + parquet) ================= */
+function getExt(name){
+  const m = String(name).toLowerCase().match(/\.([a-z0-9]+)$/);
+  return m ? m[1] : '';
+}
+function fmtBytes(n){
+  if(n < 1024) return n + ' B';
+  if(n < 1024*1024) return (n/1024).toFixed(0) + ' KB';
+  return (n/1024/1024).toFixed(1) + ' MB';
+}
+function readWorkbook(file){
+  return new Promise((resolve, reject)=>{
+    const reader = new FileReader();
+    reader.onload = e => {
+      try{
+        const data = new Uint8Array(e.target.result);
+        const wb = XLSX.read(data, {type:'array'});
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        const rows = XLSX.utils.sheet_to_json(ws, {defval:null});
+        resolve(rows);
+      }catch(err){ reject(new Error(file.name + ': ' + err.message)); }
+    };
+    reader.onerror = () => reject(new Error(file.name + ': อ่านไฟล์ไม่สำเร็จ'));
+    reader.readAsArrayBuffer(file);
+  });
+}
+let __hyparquetMod = null, __hyparquetCompressors = null;
+async function loadHyparquet(){
+  if(!__hyparquetMod){
+    __hyparquetMod = await import('https://cdn.jsdelivr.net/npm/hyparquet/src/hyparquet.min.js');
+  }
+  if(!__hyparquetCompressors){
+    try{
+      const mod = await import('https://cdn.jsdelivr.net/npm/hyparquet-compressors/src/hyparquet-compressors.min.js');
+      __hyparquetCompressors = mod.compressors;
+    }catch(e){ __hyparquetCompressors = undefined; }
+  }
+  return __hyparquetMod;
+}
+async function readParquet(file){
+  try{
+    const { parquetReadObjects } = await loadHyparquet();
+    const arrayBuffer = await file.arrayBuffer();
+    const rows = await parquetReadObjects({ file: arrayBuffer, compressors: __hyparquetCompressors });
+    return rows;
+  }catch(err){ throw new Error(file.name + ': อ่านไฟล์ parquet ไม่สำเร็จ — ' + err.message); }
+}
+function readAnyFile(file){
+  const ext = getExt(file.name);
+  if(ext === 'parquet') return readParquet(file);
+  if(ext === 'xlsx' || ext === 'xls') return readWorkbook(file);
+  return Promise.reject(new Error(file.name + ': นามสกุลไฟล์ไม่รองรับ (รองรับ .xlsx, .xls, .parquet)'));
+}
+function readAllInSlot(fileArr){
+  return Promise.all(fileArr.map(readAnyFile)).then(arrays => arrays.flat());
+}
+
+/* ================= Upload wiring (multi-file, appendable) ================= */
+function fileKey(f){ return f.name + '::' + f.size + '::' + f.lastModified; }
+
+function renderFileList(key){
+  const fn = document.getElementById('fn-' + key);
+  const drop = document.getElementById('drop-' + key);
+  fn.innerHTML = '';
+  files[key].forEach((f, idx)=>{
+    const row = document.createElement('div');
+    row.className = 'file-chip';
+    row.innerHTML = `<span class="fname">📄 ${f.name}</span><span class="fsize">${fmtBytes(f.size)}</span>`;
+    const rm = document.createElement('button');
+    rm.className = 'frm'; rm.type = 'button'; rm.textContent = '✕';
+    rm.title = 'ลบไฟล์นี้';
+    rm.addEventListener('click', (e)=>{
+      e.preventDefault(); e.stopPropagation();
+      files[key].splice(idx, 1);
+      renderFileList(key);
+      updateStatus();
+    });
+    row.appendChild(rm);
+    fn.appendChild(row);
+  });
+  drop.classList.toggle('loaded', files[key].length > 0);
+}
+
+function addFilesToSlot(key, fileList){
+  const existingKeys = new Set(files[key].map(fileKey));
+  Array.from(fileList).forEach(f=>{
+    if(!existingKeys.has(fileKey(f))){
+      files[key].push(f);
+      existingKeys.add(fileKey(f));
+    }
+  });
+  renderFileList(key);
+  updateStatus();
+}
+
+function wireDrop(key, dropId, inputId){
   const drop = document.getElementById(dropId);
   const input = document.getElementById(inputId);
-  const fn = document.getElementById(fnId);
   input.addEventListener('change', ()=>{
-    if(input.files && input.files[0]){
-      files[key] = input.files[0];
-      fn.textContent = input.files[0].name;
-      drop.classList.add('loaded');
-    }
-    updateStatus();
+    if(input.files && input.files.length){ addFilesToSlot(key, input.files); }
+    input.value = '';
   });
   ['dragover','dragenter'].forEach(ev => drop.addEventListener(ev, e=>{ e.preventDefault(); drop.classList.add('dragover'); }));
   ['dragleave','drop'].forEach(ev => drop.addEventListener(ev, e=>{ e.preventDefault(); drop.classList.remove('dragover'); }));
   drop.addEventListener('drop', e=>{
-    if(e.dataTransfer.files && e.dataTransfer.files[0]){
-      input.files = e.dataTransfer.files;
-      input.dispatchEvent(new Event('change'));
-    }
+    if(e.dataTransfer.files && e.dataTransfer.files.length){ addFilesToSlot(key, e.dataTransfer.files); }
   });
 }
-wireDrop('trade','drop-trade','file-trade','fn-trade');
-wireDrop('sales','drop-sales','file-sales','fn-sales');
-wireDrop('org','drop-org','file-org','fn-org');
+wireDrop('trade','drop-trade','file-trade');
+wireDrop('sales','drop-sales','file-sales');
+wireDrop('org','drop-org','file-org');
 
 function updateStatus(){
-  const n = Object.values(files).filter(Boolean).length;
+  const n = ['trade','sales','org'].filter(k => files[k].length > 0).length;
+  const totalFiles = files.trade.length + files.sales.length + files.org.length;
   document.getElementById('statusMsg').innerHTML = n===3
-    ? '<b>พร้อมประมวลผล</b> — อัปโหลดครบ 3 ไฟล์แล้ว'
-    : `อัปโหลดแล้ว <b>${n}/3</b> ไฟล์`;
+    ? `<b>พร้อมประมวลผล</b> — รวม ${totalFiles} ไฟล์`
+    : `อัปโหลดแล้ว <b>${n}/3</b> ช่อง`;
   document.getElementById('processBtn').disabled = n !== 3;
 }
 
@@ -482,14 +635,14 @@ document.getElementById('processBtn').addEventListener('click', async ()=>{
   btn.disabled = true; btn.textContent = 'กำลังประมวลผล…';
   try{
     const [tradeRaw, salesRaw, orgRaw] = await Promise.all([
-      readWorkbook(files.trade), readWorkbook(files.sales), readWorkbook(files.org)
+      readAllInSlot(files.trade), readAllInSlot(files.sales), readAllInSlot(files.org)
     ]);
     processData(tradeRaw, salesRaw, orgRaw);
     document.getElementById('uploadSection').style.display = 'none';
     document.getElementById('uploadCollapsed').style.display = 'flex';
-    document.getElementById('chip-trade').textContent = 'เทรด: ' + files.trade.name;
-    document.getElementById('chip-sales').textContent = 'ยอดขาย: ' + files.sales.name;
-    document.getElementById('chip-org').textContent = 'โครงสร้างโซน: ' + files.org.name;
+    document.getElementById('chip-trade').textContent = `เทรด: ${files.trade.length} ไฟล์`;
+    document.getElementById('chip-sales').textContent = `ยอดขาย: ${files.sales.length} ไฟล์`;
+    document.getElementById('chip-org').textContent = `โครงสร้างโซน: ${files.org.length} ไฟล์`;
     document.getElementById('dashboard').style.display = 'block';
   }catch(err){
     console.error(err);
@@ -505,6 +658,7 @@ document.getElementById('changeFilesBtn').addEventListener('click', ()=>{
   document.getElementById('uploadCollapsed').style.display = 'none';
   document.getElementById('dashboard').style.display = 'none';
 });
+
 
 /* ================= Processing ================= */
 function processData(tradeRaw, salesRaw, orgRaw){
@@ -758,6 +912,7 @@ function renderBranchTable(tradeFiltered, salesFiltered){
   const rows = Object.values(byBranch).map(e=>({
     ...e, attach: e.devices>0 ? (e.agreed/e.devices*100) : 0
   })).sort((a,b)=>b.attach - a.attach);
+  lastBranchRows = rows;
 
   const tbody = document.getElementById('branchTableBody');
   const emptyNote = document.getElementById('branchEmpty');
@@ -804,6 +959,79 @@ function renderLeaders(tradeFiltered){
     list.appendChild(div);
   });
 }
+
+/* ================= LINE report ================= */
+function buildBuddhistShortDate(dateObj){
+  const day = dateObj.getDate();
+  const month = dateObj.getMonth()+1;
+  const yearBE = dateObj.getFullYear() + 543;
+  const yy = String(yearBE).slice(-2).padStart(2,'0');
+  return `${day}/${month}/${yy}`;
+}
+
+function buildReportText(){
+  const toVal = document.getElementById('dateTo').value;
+  const dateObj = toVal ? new Date(toVal+'T00:00:00') : new Date();
+  const dateStr = buildBuddhistShortDate(dateObj);
+
+  const withData = lastBranchRows.filter(r=>r.devices>0);
+  const top3 = withData.slice(0,3);
+  const belowTarget = lastBranchRows.filter(r=>r.attach < ATTACH_TARGET);
+  const bottom3 = belowTarget.slice(-3);
+
+  const lines = [];
+  lines.push(`รายงานสถานการณ์ Trade in Zone ASM ${selectedZone} อัพเดท วันที่ ${dateStr}`);
+  lines.push(`สาขา Top 3 ได้แก่ 🏆`);
+  lines.push('');
+  if(top3.length === 0){ lines.push('(ยังไม่มีข้อมูลเพียงพอ)'); }
+  else top3.forEach(r=> lines.push(`* ${r.name} (${r.attach.toFixed(1)}%)`));
+  lines.push(`สาขาที่ต้องพัฒนา ต่ำกว่า ${ATTACH_TARGET}% ได้แก่ `);
+  lines.push('');
+  if(bottom3.length === 0){ lines.push('(ไม่มีสาขาต่ำกว่าเป้าหมาย 🎉)'); }
+  else bottom3.forEach(r=> lines.push(`* ${r.name} (${r.attach.toFixed(1)}%)`));
+  return lines.join('\n');
+}
+
+function showToast(msg){
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(window.__toastTimer);
+  window.__toastTimer = setTimeout(()=> t.classList.remove('show'), 2200);
+}
+
+async function copyText(text){
+  try{
+    await navigator.clipboard.writeText(text);
+    return true;
+  }catch(e){
+    try{
+      const ta = document.getElementById('reportTextarea');
+      ta.value = text;
+      ta.select();
+      ta.setSelectionRange(0, text.length);
+      return document.execCommand('copy');
+    }catch(e2){ return false; }
+  }
+}
+
+document.getElementById('genReportBtn').addEventListener('click', ()=>{
+  const text = buildReportText();
+  document.getElementById('reportPreview').textContent = text;
+  document.getElementById('reportTextarea').value = text;
+  document.getElementById('reportModalOverlay').classList.add('open');
+});
+function closeReportModal(){ document.getElementById('reportModalOverlay').classList.remove('open'); }
+document.getElementById('reportModalClose').addEventListener('click', closeReportModal);
+document.getElementById('reportModalClose2').addEventListener('click', closeReportModal);
+document.getElementById('reportModalOverlay').addEventListener('click', (e)=>{
+  if(e.target.id === 'reportModalOverlay') closeReportModal();
+});
+document.getElementById('copyReportBtn').addEventListener('click', async ()=>{
+  const text = document.getElementById('reportTextarea').value;
+  const ok = await copyText(text);
+  showToast(ok ? 'คัดลอกข้อความแล้ว ✓' : 'คัดลอกไม่สำเร็จ กรุณาคัดลอกด้วยตนเอง');
+});
 </script>
 </body>
 </html>
