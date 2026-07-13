@@ -137,6 +137,29 @@
   #dashboard{ display:none; }
 
   /* ---------- Filter bar ---------- */
+  /* ---------- Tabs ---------- */
+  .tab-nav{ display:flex; gap:8px; margin-bottom:20px; }
+  .tab-btn{
+    border:1px solid var(--border); background:var(--surface); color:var(--ink-soft);
+    font-family:inherit; font-weight:700; font-size:13px; padding:10px 20px; border-radius:999px;
+    cursor:pointer; transition:background .15s, color .15s, border-color .15s;
+  }
+  .tab-btn:hover{ border-color:var(--gold-soft); }
+  .tab-btn.active{ background:var(--ink); color:#fff; border-color:var(--ink); }
+  .tab-content{ display:none; }
+  .tab-content.active{ display:block; }
+  .emp-tab-head{ display:flex; align-items:flex-end; justify-content:space-between; gap:16px; flex-wrap:wrap; margin-bottom:18px; }
+  .emp-tab-filters{ display:flex; gap:14px; flex-wrap:wrap; }
+  .emp-tab-filters input[type=text]{
+    border:1px solid var(--border); border-radius:var(--radius-sm); padding:9px 12px;
+    font-family:inherit; font-size:13px; color:var(--ink); background:var(--surface-2); min-width:170px;
+  }
+  .leader-section-title{
+    font-size:11px; text-transform:uppercase; letter-spacing:.06em; font-weight:700;
+    color:var(--ink-faint); margin:4px 0 12px;
+  }
+  .leader-section-title.flop{ margin-top:22px; color:var(--danger); }
+
   .filters{
     background:var(--surface); border:1px solid var(--border); border-radius:var(--radius);
     box-shadow:var(--shadow); padding:20px 22px; margin-bottom:24px;
@@ -212,6 +235,7 @@
   .lrow .barbg{ background:var(--surface-2); border-radius:6px; height:6px; margin-top:5px; overflow:hidden;}
   .lrow .barfg{ background:linear-gradient(90deg, var(--gold-deep), var(--gold)); height:100%; border-radius:6px; }
   .lrow .cnt{ font-size:12px; font-weight:700; color:var(--gold-deep); font-variant-numeric:tabular-nums; flex-shrink:0; }
+  .lrow .badge-rate{ flex-shrink:0; }
 
   .empty-note{ text-align:center; color:var(--ink-faint); font-size:12.5px; padding:26px 0; }
   .footer-note{ text-align:center; font-size:11.5px; color:var(--ink-faint); margin-top:30px; }
@@ -399,6 +423,13 @@
       <button class="btn btn-primary btn-report" id="genReportBtn">📋 วิเคราะห์รายงานสำหรับ LINE</button>
     </div>
 
+    <div class="tab-nav">
+      <button class="tab-btn active" id="tabBtnOverview" data-tab="overview">ภาพรวม</button>
+      <button class="tab-btn" id="tabBtnEmployee" data-tab="employee">Attach % รายพนักงาน</button>
+    </div>
+
+    <div class="tab-content active" id="tab-overview">
+
     <div class="panels">
       <div class="panel">
         <h3>สรุปผลรายสาขา</h3>
@@ -412,10 +443,52 @@
         <div class="empty-note" id="branchEmpty" style="display:none;">ไม่มีข้อมูลตรงตามตัวกรองที่เลือก</div>
       </div>
       <div class="panel">
-        <h3>พนักงานตกลงเทรดสูงสุด</h3>
-        <p class="sub">Top 8 จากตัวกรองปัจจุบัน</p>
-        <div class="leader" id="leaderList"></div>
-        <div class="empty-note" id="leaderEmpty" style="display:none;">ไม่มีข้อมูลตรงตามตัวกรองที่เลือก</div>
+        <h3>พนักงาน Attach Trade-in สูงสุด/ต่ำสุด</h3>
+        <p class="sub">Top 10 และ 10 อันดับที่ต้องพัฒนา จากตัวกรองปัจจุบัน</p>
+        <div class="leader-section-title">🏆 Top 10</div>
+        <div class="leader" id="leaderTopList"></div>
+        <div class="empty-note" id="leaderTopEmpty" style="display:none;">ไม่มีข้อมูลตรงตามตัวกรองที่เลือก</div>
+        <div class="leader-section-title flop">⚠️ 10 อันดับที่ต้องพัฒนา</div>
+        <div class="leader" id="leaderFlopList"></div>
+        <div class="empty-note" id="leaderFlopEmpty" style="display:none;">ไม่มีข้อมูลเพิ่มเติม</div>
+      </div>
+    </div>
+
+    </div>
+
+    <div class="tab-content" id="tab-employee">
+      <div class="panel">
+        <div class="emp-tab-head">
+          <div>
+            <h3>Attach Trade-in % รายพนักงาน (ทั้งหมด)</h3>
+            <p class="sub">แสดงพนักงานทุกคน เรียงตาม Attach % สูงสุด · ใช้ประเภท Device ครบทั้ง 4 ชนิดเสมอ</p>
+          </div>
+          <div class="emp-tab-filters">
+            <div class="f-group">
+              <label>ช่วงวันที่</label>
+              <div class="f-dates">
+                <input type="date" id="empDateFrom">
+                <span>ถึง</span>
+                <input type="date" id="empDateTo">
+              </div>
+            </div>
+            <div class="f-group">
+              <label>สาขา</label>
+              <select id="empTabBranchSelect"><option value="__ALL__">ทุกสาขา</option></select>
+            </div>
+            <div class="f-group">
+              <label>ค้นหาพนักงาน</label>
+              <input type="text" id="empTabSearch" placeholder="พิมพ์ชื่อพนักงาน…">
+            </div>
+          </div>
+        </div>
+        <table>
+          <thead>
+            <tr><th>พนักงาน</th><th>สาขา</th><th class="num">ตกลงเทรด</th><th class="num">Device ขาย</th><th class="num">Attach %</th></tr>
+          </thead>
+          <tbody id="empTableBody"></tbody>
+        </table>
+        <div class="empty-note" id="empTableEmpty" style="display:none;">ไม่มีข้อมูลตรงตามตัวกรองที่เลือก</div>
       </div>
     </div>
 
@@ -445,6 +518,7 @@
 <script>
 /* ================= Config ================= */
 const ATTACH_TARGET = 35; // %
+const EXCLUDED_EMPLOYEE_NAMES = new Set(['system']); // e.g. automated sales system — not a real employee, lowercase
 
 /* ================= Utilities ================= */
 function normText(s){
@@ -486,8 +560,15 @@ function fmtDateInput(d){
   return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());
 }
 function fmtNum(n){ return n.toLocaleString('th-TH'); }
+function normHeader(s){ return String(s).trim().toLowerCase().replace(/\s+/g,' '); }
 function getField(row, candidates){
   for(const c of candidates){ if(row[c] !== undefined) return row[c]; }
+  const keys = Object.keys(row);
+  for(const c of candidates){
+    const target = normHeader(c);
+    const found = keys.find(k => normHeader(k) === target);
+    if(found !== undefined) return row[found];
+  }
   return undefined;
 }
 
@@ -749,12 +830,13 @@ function rebuildForZone(tradeRaw, salesRaw, branchToAsm, catMap){
     const mapKey = normText(categoryRaw) + '|' + normText(subCategoryRaw);
     const catDaily = (catMap && catMap[mapKey]) ? catMap[mapKey] : '';
     let resolvedCategory = catDaily || (categoryRaw ? String(categoryRaw).trim() : '');
-    const subCategoryNorm = subCategoryRaw ? String(subCategoryRaw).trim().toUpperCase() : '';
+    const subCategoryNorm = subCategoryRaw ? String(subCategoryRaw).trim().toUpperCase().replace(/\s+/g,' ') : '';
     if(subCategoryNorm === 'IPHONE PROMO CODE'){
       resolvedCategory = 'Other'; // always exclude from iPhone device count, with or without a CAT file
     }
+    const officerName = officer ? String(officer).trim() : '';
     const rec = {
-      employee: officer ? String(officer).trim() : '',
+      employee: EXCLUDED_EMPLOYEE_NAMES.has(officerName.toLowerCase()) ? '' : officerName,
       branch: cleanBranchName(branchRaw),
       branchKey: bKey,
       date,
@@ -771,11 +853,10 @@ function rebuildForZone(tradeRaw, salesRaw, branchToAsm, catMap){
     const bKey = normText(branchRaw);
     if(!zoneBranchKeys.has(bKey)) return;
     const status = getField(r, TRADE_CANDS.status);
-    const empTrade = getField(r, TRADE_CANDS.employee);
     const date = parseIsoDate(getField(r, TRADE_CANDS.date));
     const bill = toBillStr(getField(r, TRADE_CANDS.bill));
     const match = bill ? salesByDoc[bill] : null;
-    const employee = match ? match.employee : (empTrade ? String(empTrade).trim() : '');
+    const employee = match ? match.employee : ''; // employee name only from matched Sale report row — no fallback to Trade report's own salesperson
     const branch = match ? match.branch : cleanBranchName(branchRaw);
     const branchKey = match ? match.branchKey : bKey;
     mappedTrade.push({
@@ -787,6 +868,7 @@ function rebuildForZone(tradeRaw, salesRaw, branchToAsm, catMap){
   buildBranchAndEmpOptions();
   setDateBoundsIfEmpty();
   renderAll();
+  renderEmployeeTab();
 }
 
 function buildBranchAndEmpOptions(){
@@ -813,6 +895,17 @@ function buildBranchAndEmpOptions(){
     branchSelect.appendChild(opt);
   });
   branchSelect.value = Array.from(branchSelect.options).some(o=>o.value===curBranch) ? curBranch : '__ALL__';
+
+  const empTabBranchSelect = document.getElementById('empTabBranchSelect');
+  const curEmpTabBranch = empTabBranchSelect.value || '__ALL__';
+  empTabBranchSelect.innerHTML = '<option value="__ALL__">ทุกสาขา</option>';
+  branchOptions.forEach(b=>{
+    const opt = document.createElement('option');
+    opt.value = b.key; opt.textContent = b.name;
+    empTabBranchSelect.appendChild(opt);
+  });
+  empTabBranchSelect.value = Array.from(empTabBranchSelect.options).some(o=>o.value===curEmpTabBranch) ? curEmpTabBranch : '__ALL__';
+
   refreshEmpOptions();
 }
 
@@ -837,13 +930,19 @@ function setDateBoundsIfEmpty(){
     ...salesRows.map(r=>r.date).filter(Boolean)
   ];
   if(allDates.length === 0) return;
+  const min = new Date(Math.min(...allDates.map(d=>d.getTime())));
+  const max = new Date(Math.max(...allDates.map(d=>d.getTime())));
   const fromEl = document.getElementById('dateFrom');
   const toEl = document.getElementById('dateTo');
   if(!fromEl.value && !toEl.value){
-    const min = new Date(Math.min(...allDates.map(d=>d.getTime())));
-    const max = new Date(Math.max(...allDates.map(d=>d.getTime())));
     fromEl.value = fmtDateInput(min);
     toEl.value = fmtDateInput(max);
+  }
+  const empFromEl = document.getElementById('empDateFrom');
+  const empToEl = document.getElementById('empDateTo');
+  if(!empFromEl.value && !empToEl.value){
+    empFromEl.value = fmtDateInput(min);
+    empToEl.value = fmtDateInput(max);
   }
 }
 
@@ -864,6 +963,7 @@ document.querySelectorAll('.dev-cb').forEach(cb=>{
       if(!anyChecked) all.checked = true;
     }
     renderAll();
+    renderEmployeeTab();
   });
 });
 
@@ -935,7 +1035,7 @@ function renderAll(){
   gaugeArc.setAttribute('stroke', devices === 0 ? '#A9803E' : (meetsTarget ? '#5B7A5E' : '#B15C4A'));
 
   renderBranchTable(tradeFiltered, salesFiltered);
-  renderLeaders(tradeFiltered);
+  renderLeaders(tradeFiltered, salesFiltered);
 }
 
 function renderBranchTable(tradeFiltered, salesFiltered){
@@ -975,34 +1075,118 @@ function renderBranchTable(tradeFiltered, salesFiltered){
   });
 }
 
-function renderLeaders(tradeFiltered){
+function computeEmployeeStats(tradeArr, salesArr){
   const byEmp = {};
-  tradeFiltered.forEach(r=>{
+  const ensure = (name, branch)=>{
+    if(!byEmp[name]) byEmp[name] = {name, branch: branch || '—', assessed:0, agreed:0, devices:0};
+    return byEmp[name];
+  };
+  tradeArr.forEach(r=>{
     if(!r.employee) return;
-    if(r.status !== 'สิ้นสุดการประเมินราคา') return;
-    byEmp[r.employee] = (byEmp[r.employee]||0) + 1;
+    const e = ensure(r.employee, r.branch);
+    e.assessed++;
+    if(r.status === 'สิ้นสุดการประเมินราคา') e.agreed++;
   });
-  const rows = Object.entries(byEmp).map(([name,count])=>({name,count}))
-    .sort((a,b)=>b.count-a.count).slice(0,8);
+  salesArr.forEach(r=>{
+    if(!r.employee) return;
+    const e = ensure(r.employee, r.branch);
+    e.devices++;
+  });
+  return Object.values(byEmp).map(e=>({ ...e, attach: e.devices>0 ? (e.agreed/e.devices*100) : 0 }));
+}
 
-  const list = document.getElementById('leaderList');
-  const emptyNote = document.getElementById('leaderEmpty');
+function renderLeaderList(listId, emptyId, rows){
+  const list = document.getElementById(listId);
+  const emptyNote = document.getElementById(emptyId);
   list.innerHTML = '';
   if(rows.length === 0){ emptyNote.style.display = 'block'; return; }
   emptyNote.style.display = 'none';
-  const max = rows[0].count || 1;
   rows.forEach((r,i)=>{
     const div = document.createElement('div');
     div.className = 'lrow';
+    const rateClass = r.devices===0 ? 'rate-mid' : (r.attach>=ATTACH_TARGET ? 'rate-hi' : 'rate-lo');
+    const width = Math.max(4, Math.min(100, r.attach));
     div.innerHTML = `<div class="rank">${i+1}</div>
       <div class="info">
         <div class="name">${r.name}</div>
-        <div class="barbg"><div class="barfg" style="width:${(r.count/max*100).toFixed(0)}%"></div></div>
+        <div class="barbg"><div class="barfg" style="width:${width.toFixed(0)}%"></div></div>
       </div>
-      <div class="cnt">${fmtNum(r.count)}</div>`;
+      <span class="badge-rate ${rateClass}">${r.attach.toFixed(1)}%</span>`;
     list.appendChild(div);
   });
 }
+
+function renderLeaders(tradeFiltered, salesFiltered){
+  const stats = computeEmployeeStats(tradeFiltered, salesFiltered)
+    .filter(e => e.assessed > 0 || e.devices > 0)
+    .sort((a,b)=> b.attach - a.attach);
+
+  const top10 = stats.slice(0, 10);
+  const remaining = stats.slice(10);
+  const flop10 = remaining.slice(-10).reverse();
+
+  renderLeaderList('leaderTopList', 'leaderTopEmpty', top10);
+  renderLeaderList('leaderFlopList', 'leaderFlopEmpty', flop10);
+}
+
+/* ================= Employee-wide tab ================= */
+function renderEmployeeTab(){
+  if(mappedTrade.length === 0 && salesRows.length === 0) return;
+  const fromVal = document.getElementById('empDateFrom').value;
+  const toVal = document.getElementById('empDateTo').value;
+  const from = fromVal ? new Date(fromVal+'T00:00:00') : null;
+  const to = toVal ? new Date(toVal+'T23:59:59') : null;
+  const empBranchKey = document.getElementById('empTabBranchSelect').value;
+  const searchTerm = document.getElementById('empTabSearch').value.trim().toLowerCase();
+  const allCats = new Set(getSelectedCategories());
+
+  const tFiltered = mappedTrade.filter(r=>{
+    if(!inRange(r.date, from, to)) return false;
+    if(empBranchKey !== '__ALL__' && r.branchKey !== empBranchKey) return false;
+    return true;
+  });
+  const sFiltered = salesRows.filter(r=>{
+    if(!inRange(r.date, from, to)) return false;
+    if(empBranchKey !== '__ALL__' && r.branchKey !== empBranchKey) return false;
+    if(!allCats.has(r.category)) return false;
+    return true;
+  });
+
+  let rows = computeEmployeeStats(tFiltered, sFiltered);
+  if(searchTerm) rows = rows.filter(r=>r.name.toLowerCase().includes(searchTerm));
+  rows.sort((a,b)=>b.attach - a.attach);
+
+  const tbody = document.getElementById('empTableBody');
+  const emptyNote = document.getElementById('empTableEmpty');
+  tbody.innerHTML = '';
+  if(rows.length === 0){ emptyNote.style.display = 'block'; return; }
+  emptyNote.style.display = 'none';
+  rows.forEach(e=>{
+    const tr = document.createElement('tr');
+    const rateClass = e.devices===0 ? 'rate-mid' : (e.attach>=ATTACH_TARGET ? 'rate-hi' : 'rate-lo');
+    tr.innerHTML = `<td>${e.name}</td>
+      <td>${e.branch}</td>
+      <td class="num">${fmtNum(e.agreed)}</td>
+      <td class="num">${fmtNum(e.devices)}</td>
+      <td class="num"><span class="badge-rate ${rateClass}">${e.attach.toFixed(1)}%</span></td>`;
+    tbody.appendChild(tr);
+  });
+}
+
+document.getElementById('empDateFrom').addEventListener('change', renderEmployeeTab);
+document.getElementById('empDateTo').addEventListener('change', renderEmployeeTab);
+document.getElementById('empTabBranchSelect').addEventListener('change', renderEmployeeTab);
+document.getElementById('empTabSearch').addEventListener('input', renderEmployeeTab);
+
+/* ================= Tab switching ================= */
+document.querySelectorAll('.tab-btn').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(c=>c.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
+  });
+});
 
 /* ================= LINE report ================= */
 function buildBuddhistShortDate(dateObj){
