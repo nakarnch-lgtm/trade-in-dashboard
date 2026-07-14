@@ -417,10 +417,13 @@
 
     <div class="report-bar">
       <div class="report-bar-text">
-        <div class="report-bar-title">รายงานสรุปสำหรับส่งทีม</div>
-        <div class="report-bar-sub">สร้างข้อความสรุป Top 3 และสาขาที่ต้องพัฒนา พร้อมคัดลอกส่งเข้า LINE ได้ทันที</div>
+        <div class="report-bar-title">รายงานสรุปสำหรับส่งทีม (และฐานข้อมูล)</div>
+        <div class="report-bar-sub">คุณสามารถคัดลอกส่งเข้า LINE หรือกดบันทึกลง Database เพื่อให้ Bot ใช้งานได้ทันที</div>
       </div>
-      <button class="btn btn-primary btn-report" id="genReportBtn">📋 วิเคราะห์รายงานสำหรับ LINE</button>
+      <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-top: 10px;">
+        <button class="btn btn-primary btn-report" id="saveDbBtn" style="background:#5B7A5E;">💾 บันทึกลง Database</button>
+        <button class="btn btn-primary btn-report" id="genReportBtn">📋 วิเคราะห์รายงานสำหรับ LINE</button>
+      </div>
     </div>
 
     <div class="tab-nav">
@@ -1227,6 +1230,40 @@ function showToast(msg){
   clearTimeout(window.__toastTimer);
   window.__toastTimer = setTimeout(()=> t.classList.remove('show'), 2200);
 }
+
+document.getElementById('saveDbBtn').addEventListener('click', async () => {
+  const btn = document.getElementById('saveDbBtn');
+  if (mappedTrade.length === 0) {
+    showToast('ไม่มีข้อมูล Trade ให้บันทึกครับ');
+    return;
+  }
+  
+  btn.disabled = true;
+  btn.textContent = 'กำลังบันทึก...';
+
+  try {
+    const API_URL = 'https://my-line-bot-git-main-nakarnch-2448s-projects.vercel.app/api/save-database';
+    
+    const res = await fetch(API_URL, {
+       method: 'POST',
+       headers: { 'Content-Type': 'application/json' },
+       body: JSON.stringify(mappedTrade)
+    });
+
+    if (!res.ok) {
+       const err = await res.json();
+       throw new Error(err.error || 'Server returned ' + res.status);
+    }
+
+    showToast(`✅ บันทึกลงฐานข้อมูลสำเร็จ (${mappedTrade.length} รายการ)! บอทพร้อมใช้งานทันที.`);
+  } catch(e) {
+    console.error('Save DB Error:', e);
+    showToast('❌ ไม่สามารถบันทึกได้: ' + e.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '💾 บันทึกลง Database';
+  }
+});
 
 async function copyText(text){
   try{
