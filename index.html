@@ -862,9 +862,14 @@ function rebuildForZone(tradeRaw, salesRaw, branchToAsm, catMap){
     const employee = match ? match.employee : ''; // employee name only from matched Sale report row — no fallback to Trade report's own salesperson
     const branch = match ? match.branch : cleanBranchName(branchRaw);
     const branchKey = match ? match.branchKey : bKey;
+    
+    // Extract numerical prefix like "1196" from "1196 : Studio 7"
+    const prefixMatch = String(branchRaw).match(/^(?:ID)?(\d+)\s*:/i);
+    const branchCode = prefixMatch ? prefixMatch[1] : '';
+
     mappedTrade.push({
       status: status ? String(status).trim() : '',
-      employee, branch, branchKey, date, bill
+      employee, branch, branchKey, branchCode, date, bill
     });
   });
 
