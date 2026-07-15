@@ -771,12 +771,18 @@ document.getElementById('changeFilesBtn').addEventListener('click', ()=>{
 function processData(tradeRaw, salesRaw, orgRaw, catRaw){
   // org: branchKey -> asm name; also collect zone list
   const branchToAsm = {};
+  const branchToCode = {};
   const asmSet = new Set();
   orgRaw.forEach(r=>{
     const nameRaw = getField(r, ORG_CANDS.name);
     const am = getField(r, ORG_CANDS.am);
     if(!nameRaw) return;
     const key = normText(nameRaw);
+    
+    // Extract ID (e.g. 1196) from "1196 : สาขา"
+    const prefixMatch = String(nameRaw).match(/^(?:ID)?(\d+)\s*:/i);
+    if (prefixMatch) branchToCode[key] = prefixMatch[1];
+    
     const amStr = (am===null||am===undefined) ? '' : String(am).trim();
     if(amStr && amStr !== '-'){
       branchToAsm[key] = amStr;
@@ -805,17 +811,18 @@ function processData(tradeRaw, salesRaw, orgRaw, catRaw){
   });
   selectedZone = zoneList.includes('ธนเดช') ? 'ธนเดช' : (zoneList[0] || '');
   zoneSelect.value = selectedZone;
-  zoneSelect.onchange = ()=>{ selectedZone = zoneSelect.value; rebuildForZone(tradeRaw, salesRaw, branchToAsm, catMap); };
+  zoneSelect.onchange = ()=>{ selectedZone = zoneSelect.value; rebuildForZone(tradeRaw, salesRaw, branchToAsm, branchToCode, catMap); };
 
   window.__branchToAsm = branchToAsm;
+  window.__branchToCode = branchToCode;
   window.__tradeRaw = tradeRaw;
   window.__salesRaw = salesRaw;
   window.__catMap = catMap;
 
-  rebuildForZone(tradeRaw, salesRaw, branchToAsm, catMap);
+  rebuildForZone(tradeRaw, salesRaw, branchToAsm, branchToCode, catMap);
 }
 
-function rebuildForZone(tradeRaw, salesRaw, branchToAsm, catMap){
+function rebuildForZone(tradeRaw, salesRaw, branchToAsm, branchToCode, catMap){
   zoneBranchKeys = new Set(Object.keys(branchToAsm).filter(k => branchToAsm[k] === selectedZone));
 
   // sales lookup by Doc Ref -> {employee, branch}
@@ -863,9 +870,7 @@ function rebuildForZone(tradeRaw, salesRaw, branchToAsm, catMap){
     const branch = match ? match.branch : cleanBranchName(branchRaw);
     const branchKey = match ? match.branchKey : bKey;
     
-    // Extract numerical prefix like "1196" from "1196 : Studio 7"
-    const prefixMatch = String(branchRaw).match(/^(?:ID)?(\d+)\s*:/i);
-    const branchCode = prefixMatch ? prefixMatch[1] : '';
+    const branchCode = branchToCode[branchKey] || '';
 
     mappedTrade.push({
       status: status ? String(status).trim() : '',
@@ -1085,19 +1090,19 @@ function renderBranchTable(tradeFiltered, salesFiltered){
 
 function computeEmployeeStats(tradeArr, salesArr){
   const byEmp = {};
-  const ensure = (name, branch)=>{
-    if(!byEmp[name]) byEmp[name] = {name, branch: branch || '—', assessed:0, agreed:0, devices:0};
+  const ensure = (name, branch, branchKey)=>{
+    if(!byEmp[name]) byEmp[name] = {name, branch: branch || '—', branchKey, assessed:0, agreed:0, devices:0};
     return byEmp[name];
   };
   tradeArr.forEach(r=>{
     if(!r.employee) return;
-    const e = ensure(r.employee, r.branch);
+    const e = ensure(r.employee, r.branch, r.branchKey);
     e.assessed++;
     if(r.status === 'สิ้นสุดการประเมินราคา') e.agreed++;
   });
   salesArr.forEach(r=>{
     if(!r.employee) return;
-    const e = ensure(r.employee, r.branch);
+    const e = ensure(r.employee, r.branch, r.branchKey);
     e.devices++;
   });
   return Object.values(byEmp).map(e=>({ ...e, attach: e.devices>0 ? (e.agreed/e.devices*100) : 0 }));
@@ -1228,6 +1233,162 @@ function buildReportText(){
   return lines.join('\n');
 }
 
+// Helper to build bot reports for a specific subset of data
+function buildReportsForSubset(trades, sales, suffix, titleAffix) {
+  const reports = [];
+  const getEmoji = (att) => att >= 35 ? '🟢' : (att >= 17 ? '🟡' : '🔴');
+  const allAsmSet = new Set(Object.values(window.__branchToAsm || {}));
+  
+  const rawStats = computeEmployeeStats(trades, sales);
+  const branchMap = {};
+  
+  const ensureBranch = (key, name) => {
+    if(!branchMap[key]) branchMap[key] = { name: name || '—', assessed:0, agreed:0, devices:0, emps: [] };
+    return branchMap[key];
+  };
+
+  trades.forEach(r => {
+    const b = ensureBranch(r.branchKey, r.branch);
+    b.assessed++;
+    if(r.status === 'สิ้นสุดการประเมินราคา') b.agreed++;
+  });
+
+  sales.forEach(r => {
+    const b = ensureBranch(r.branchKey, r.branch);
+    b.devices++;
+  });
+
+  rawStats.forEach(e => {
+    const b = ensureBranch(e.branchKey, e.branch);
+    b.emps.push(e);
+  });
+
+  Object.keys(branchMap).forEach(bKey => {
+    const b = branchMap[bKey];
+    b.attach = b.devices > 0 ? (b.agreed/b.devices*100) : 0;
+    const bCode = window.__branchToCode[bKey] || bKey;
+    b.emps.sort((a,b)=> b.attach - a.attach);
+    let txt = `🔁 Trade-in · ${bCode} · ${b.name}\n📅 ${titleAffix}\nประเมิน ${b.assessed} | ตกลงเทรด ${b.agreed} 📱 ขาย ${b.devices} · ATTACH ${b.attach.toFixed(1)}%\n`;
+    b.emps.forEach(emp => {
+      txt += `${getEmoji(emp.attach)} ${emp.name} ${emp.attach.toFixed(1)}% (${emp.agreed}/${emp.devices})\n`;
+    });
+    reports.push({ report_key: bCode + suffix, report_type: 'branch', report_text: txt });
+  });
+
+  allAsmSet.forEach(asm => {
+    const asmBranches = Object.keys(branchMap).filter(k => window.__branchToAsm[k] === asm).map(k => ({...branchMap[k], code: window.__branchToCode[k] || k})).sort((a,b) => b.attach - a.attach);
+    if(asmBranches.length === 0) return;
+    let tAssessed = 0, tAgreed = 0, tDevices = 0;
+    asmBranches.forEach(b => { tAssessed += b.assessed; tAgreed += b.agreed; tDevices += b.devices; });
+    const tAttach = tDevices > 0 ? (tAgreed/tDevices*100) : 0;
+    let txt = `🔁 Trade-in ASM ${asm}\n📅 ${titleAffix}\nประเมิน ${tAssessed} | ตกลงเทรด ${tAgreed} 📱 ขาย ${tDevices} · ATT ${tAttach.toFixed(1)}%\n`;
+    asmBranches.forEach(b => {
+      txt += `${getEmoji(b.attach)} ${b.code} ${b.name} · ${b.attach.toFixed(1)}% (${b.agreed}/${b.devices})\n`;
+    });
+    reports.push({ report_key: asm + suffix, report_type: 'asm', report_text: txt });
+  });
+  
+  // Generate Top 10 and Flop 10 Employee Reports
+  const allEmps = rawStats.filter(e => e.assessed > 0 || e.devices > 0).sort((a,b) => b.attach - a.attach);
+  if (allEmps.length > 0) {
+    const top10 = allEmps.slice(0, 10);
+    const flop10 = allEmps.slice(-10).reverse();
+    
+    let topTxt = `🏆 Top 10 พนักงานขาย\n📅 ${titleAffix}\n`;
+    top10.forEach((e,i) => {
+      topTxt += `${i+1}. ${getEmoji(e.attach)} ${e.name} (${e.branch}) · ${e.attach.toFixed(1)}% (${e.agreed}/${e.devices})\n`;
+    });
+    reports.push({ report_key: 'top 10' + suffix, report_type: 'top10', report_text: topTxt });
+    
+    let flopTxt = `🚨 Flop 10 พนักงานขาย\n📅 ${titleAffix}\n`;
+    flop10.forEach((e,i) => {
+      flopTxt += `${i+1}. ${getEmoji(e.attach)} ${e.name} (${e.branch}) · ${e.attach.toFixed(1)}% (${e.agreed}/${e.devices})\n`;
+    });
+    reports.push({ report_key: 'flop 10' + suffix, report_type: 'flop10', report_text: flopTxt });
+  }
+
+  return reports;
+}
+
+function generateAllBotReports() {
+  const allSalesRows = [];
+  const salesByDoc = {};
+  window.__salesRaw.forEach(r=>{
+    const branchRaw = getField(r, SALES_CANDS.branch);
+    const docRef = toBillStr(getField(r, SALES_CANDS.docRef));
+    const officer = getField(r, SALES_CANDS.officer);
+    const officerName = officer ? String(officer).trim() : '';
+    const dateOpts = parseBuddhistDate(getField(r, SALES_CANDS.date));
+    
+    // Parse category logic
+    const categoryRaw = getField(r, SALES_CANDS.category);
+    const subCategoryRaw = getField(r, SALES_CANDS.subCategory);
+    const mapKey = normText(categoryRaw) + '|' + normText(subCategoryRaw);
+    const catDaily = (window.__catMap && window.__catMap[mapKey]) ? window.__catMap[mapKey] : '';
+    let resolvedCategory = catDaily || (categoryRaw ? String(categoryRaw).trim() : '');
+    const subCategoryNorm = subCategoryRaw ? String(subCategoryRaw).trim().toUpperCase().replace(/\s+/g,' ') : '';
+    if(subCategoryNorm === 'IPHONE PROMO CODE') {
+      resolvedCategory = 'Other';
+    }
+
+    const rec = {
+      employee: EXCLUDED_EMPLOYEE_NAMES.has(officerName.toLowerCase()) ? '' : officerName,
+      branch: cleanBranchName(branchRaw),
+      branchKey: normText(branchRaw),
+      date: dateOpts,
+      category: resolvedCategory
+    };
+    
+    // Bot ONLY counts iPhone category for metrics!
+    if (resolvedCategory === 'iPhone') {
+       allSalesRows.push(rec);
+    }
+    
+    // BUT we still map EVERY docRef (regardless of category) so trade matches get employee names correct.
+    if(docRef && !salesByDoc[docRef]) salesByDoc[docRef] = rec;
+  });
+
+  const allMappedTrade = [];
+  window.__tradeRaw.forEach(r=>{
+    const branchRaw = getField(r, TRADE_CANDS.branch);
+    const status = getField(r, TRADE_CANDS.status);
+    const bill = toBillStr(getField(r, TRADE_CANDS.bill));
+    const dateOpts = parseIsoDate(getField(r, TRADE_CANDS.date));
+    const match = bill ? salesByDoc[bill] : null;
+    allMappedTrade.push({
+      status: status ? String(status).trim() : '',
+      employee: match ? match.employee : '',
+      branch: match ? match.branch : cleanBranchName(branchRaw),
+      branchKey: match ? match.branchKey : normText(branchRaw),
+      date: dateOpts
+    });
+  });
+
+  const allDates = [...allSalesRows.map(r=>r.date), ...allMappedTrade.map(r=>r.date)].filter(Boolean);
+  const maxDate = allDates.length > 0 ? new Date(Math.max(...allDates.map(d=>d.getTime()))) : new Date();
+  
+  let reports = [];
+  
+  // 1. Generate "Today" (Using maxDate available as "today")
+  const todayStart = new Date(maxDate); todayStart.setHours(0,0,0,0);
+  const todayEnd = new Date(maxDate); todayEnd.setHours(23,59,59,999);
+  const todayTrades = allMappedTrade.filter(r => r.date && r.date >= todayStart && r.date <= todayEnd);
+  const todaySales = allSalesRows.filter(r => r.date && r.date >= todayStart && r.date <= todayEnd);
+  reports.push(...buildReportsForSubset(todayTrades, todaySales, '', 'อัพเดท วันที่ ' + buildBuddhistShortDate(maxDate)));
+
+  // 2. Generate by Months
+  const TH_MONTHS = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
+  for (let m = 0; m < 12; m++) {
+    const monthTrades = allMappedTrade.filter(r => r.date && r.date.getMonth() === m);
+    const monthSales = allSalesRows.filter(r => r.date && r.date.getMonth() === m);
+    if (monthTrades.length > 0 || monthSales.length > 0) {
+      reports.push(...buildReportsForSubset(monthTrades, monthSales, ' ' + TH_MONTHS[m], 'อัพเดท เดือน ' + TH_MONTHS[m]));
+    }
+  }
+
+  return reports;
+}
+
 function showToast(msg){
   const t = document.getElementById('toast');
   t.textContent = msg;
@@ -1248,11 +1409,12 @@ document.getElementById('saveDbBtn').addEventListener('click', async () => {
 
   try {
     const API_URL = 'https://my-line-bot-sigma.vercel.app/api/save-database';
+    const payload = generateAllBotReports();
     
     const res = await fetch(API_URL, {
        method: 'POST',
        headers: { 'Content-Type': 'application/json' },
-       body: JSON.stringify(mappedTrade)
+       body: JSON.stringify(payload)
     });
 
     if (!res.ok) {
